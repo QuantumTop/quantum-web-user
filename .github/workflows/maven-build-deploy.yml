@@ -58,6 +58,11 @@ on:
         required: false
         default: 'dev'
         type: string
+      built-modules:
+        description: 'Comma-separated list of already built modules'
+        required: false
+        default: ''
+        type: string
   workflow_call:
     inputs:
       java-version:
@@ -115,6 +120,11 @@ on:
         required: false
         default: 'dev'
         type: string
+      built-modules:
+        description: 'Comma-separated list of already built modules'
+        required: false
+        default: ''
+        type: string
     secrets:
       MAVEN_TOKEN:
         description: 'Maven repository authentication token'
@@ -150,7 +160,7 @@ jobs:
       server-id: ${{ inputs.server-id }}
       repository-url: ${{ inputs.repository-url }}
       profile-id: ${{ inputs.profile-id }}
-      built-modules: ''
+      built-modules: ${{ inputs.built-modules }}
     secrets:
       MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
 
@@ -172,10 +182,10 @@ jobs:
     secrets:
       MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
 
-  # 第三步：构建 quantum-web（如果需要）
-  quantum-web-deploy:
+  # 第三步：构建 quantum-common（如果需要）
+  quantum-common-deploy:
     needs: quantum-lib-deploy
-    uses: QuantumTop/quantum-web/.github/workflows/maven-build-deploy.yml@main
+    uses: QuantumTop/quantum-common/.github/workflows/maven-build-deploy.yml@main
     with:
       java-version: ${{ inputs.java-version }}
       distribution: ${{ inputs.distribution }}
@@ -190,13 +200,50 @@ jobs:
     secrets:
       MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
 
+  # 第四步：构建 quantum-plugin（如果需要）
+  quantum-plugin-deploy:
+    needs: quantum-common-deploy
+    uses: QuantumTop/quantum-plugin/.github/workflows/maven-build-deploy.yml@main
+    with:
+      java-version: ${{ inputs.java-version }}
+      distribution: ${{ inputs.distribution }}
+      maven-options: ${{ inputs.maven-options }}
+      working-directory: ${{ inputs.working-directory }}
+      skip-tests: ${{ inputs.skip-tests }}
+      maven-username: ${{ inputs.maven-username }}
+      server-id: ${{ inputs.server-id }}
+      repository-url: ${{ inputs.repository-url }}
+      profile-id: ${{ inputs.profile-id }}
+      built-modules: ${{ needs.quantum-common-deploy.outputs.built-modules }}
+    secrets:
+      MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
 
-  # 第五步：构建和推送 Docker 镜像
+  # 第五步：构建 quantum-web（如果需要）
+  quantum-web-deploy:
+    needs: quantum-plugin-deploy
+    uses: QuantumTop/quantum-web/.github/workflows/maven-build-deploy.yml@main
+    with:
+      java-version: ${{ inputs.java-version }}
+      distribution: ${{ inputs.distribution }}
+      maven-options: ${{ inputs.maven-options }}
+      working-directory: ${{ inputs.working-directory }}
+      skip-tests: ${{ inputs.skip-tests }}
+      maven-username: ${{ inputs.maven-username }}
+      server-id: ${{ inputs.server-id }}
+      repository-url: ${{ inputs.repository-url }}
+      profile-id: ${{ inputs.profile-id }}
+      built-modules: ${{ needs.quantum-plugin-deploy.outputs.built-modules }}
+    secrets:
+      MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+
+  # 第六步：构建和推送 Docker 镜像
   build-and-push-user-image:
     runs-on: ubuntu-latest
     needs:
       - quantum-parent-deploy
       - quantum-lib-deploy
+      - quantum-common-deploy
+      - quantum-plugin-deploy
       - quantum-web-deploy
     permissions:
       contents: read
@@ -356,7 +403,7 @@ jobs:
           echo "| Module | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
           
-          BUILT_MODULES="${{ needs.quantum-web-user-deploy.outputs.built-modules }}"
+          BUILT_MODULES="${{ needs.quantum-web-deploy.outputs.built-modules }}"
           IFS=',' read -ra MODULES <<< "$BUILT_MODULES"
           for module in "${MODULES[@]}"; do
             echo "| $module | ✅ Built |" >> $GITHUB_STEP_SUMMARY
