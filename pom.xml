@@ -10,7 +10,37 @@
     </parent>
 
     <artifactId>quantum-web-user</artifactId>
-
+    <!-- 配置发布仓库 -->
+    <distributionManagement>
+        <repository>
+            <!-- 须与 settings.xml 中 server 的 id 一致 -->
+            <id>lunarstra-quantum</id>
+            <name>lunarstra-quantum</name>
+            <url>https://maven.cnb.cool/lunarstra/Quantum/-/packages/</url>
+        </repository>
+    </distributionManagement>
+    <repositories>
+        <!-- Maven 中央仓库 -->
+        <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <!-- 自定义仓库：lunarstra-quantum -->
+        <repository>
+            <id>lunarstra-quantum</id>
+            <url>https://maven.cnb.cool/lunarstra/Quantum/-/packages/</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
